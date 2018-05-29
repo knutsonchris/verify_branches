@@ -2,7 +2,7 @@
 
 import subprocess
 
-master_branch = "origin/master"  # the branch we are merging with will always be 'develop'
+master_branch = "origin/develop"  # the branch we are merging with will always be 'develop'
 
 # get the name of the current branch
 output = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
