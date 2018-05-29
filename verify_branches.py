@@ -2,7 +2,7 @@
 
 import subprocess
 
-master_branch = "origin/develop"  # the branch we are merging with will always be 'develop'
+master_branch = "origin/master"  # the branch we are merging with will always be 'develop'
 
 # get the name of the current branch
 output = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
@@ -57,5 +57,7 @@ def check_diff(current_branch):
         return False
 
 
-if check_commits_before(current_branch) and check_commits_after(current_branch) and check_commits_after(current_branch):
+if check_commits_before(current_branch) and check_commits_after(current_branch) and check_diff(current_branch):
     print("ready to merge")
+else:
+    print("not ready to merge")
