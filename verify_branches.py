@@ -9,25 +9,28 @@ output = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], stdout=sub
 current_branch = output.stdout.decode("ascii").strip() #select only stdout
 
 
-#check to make sure that the branch we are working on is based on the current branch
-output = subprocess.run(['git', 'rev-list', '--count', current_branch, master_branch], stdout=subprocess.PIPE)
-out_code = int(output.stdout.decode("ascii").strip()) #select only stdout
-if out_code != 0:
-	print("Not ready to be merged. There are", output.returncode, "commits after the current branch. You need to rebase")
-else: test1 = True
+def check_commits_before(current_branch): #check to make sure that the branch we are working on is based on the current branch
+	output = subprocess.run(['git', 'rev-list', '--count', current_branch, master_branch], stdout=subprocess.PIPE)
+	out_code = int(output.stdout.decode("ascii").strip()) #select only stdout
+	if out_code != 0:
+		print("Not ready to be merged. There are", output.returncode, "commits after the current branch. You need to rebase")
+		return False
+	else: return True
+
+def check_commits_after(current_branch): #check to make sure that the branch we are working on is only one commit ahead of origin/develop
+	output = subprocess.run(['git', 'rev-list', '--count', master_branch, current_branch], stdout=subprocess.PIPE) #using PIPE to prevent subprocess from printing git's output
+	out_code = int(output.stdout.decode("ascii").strip())
+	if out_code > 1:
+		print("Not ready to be merged. This branch is more than one commit ahead of develop")
+		return False
+	else: return True
 
 
-#check to make sure that the branch we are working on is only one commit ahead of origin/develop
-output = subprocess.run(['git', 'rev-list', '--count', master_branch, current_branch], stdout=subprocess.PIPE) #using PIPE to prevent subprocess from printing git's output
-out_code = int(output.stdout.decode("ascii").strip())
-if out_code > 1:
-	print("Not ready to be merged. This branch is more than one commit ahead of develop")
-else: test2 = True
-
-
-if test1 and test2 == True:
+if check_commits_before(current_branch) and check_commits_after(current_branch):
 	print("ready to merge")
 
+	
+#run git diff	
 output = subprocess.run(['git', 'diff', '--stat', master_branch, current_branch], stdout=subprocess.PIPE)
 out_string = output.stdout.decode("ascii").strip() #select only stdout
 
