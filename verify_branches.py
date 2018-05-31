@@ -1,56 +1,76 @@
-# This is designed to verify that branches are ready to be merged into develop
+#! /usr/bin/python3
+# Verify that branches are ready to be merged into develop by checking that there have been no commits to the base
+# since the current branch was checked out, that the current branch is only one branch ahead of the base, and that
+# there are no differences between the local current branch and the origin current branch
 
 import subprocess
+import sys
+import logging
 
-master_branch = "origin/develop"  # the branch we are merging with will always be 'develop'
+# the branch we are merging with will always be 'develop'
+base_branch = "origin/develop"
 
 # get the name of the current branch
-output = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
-                        stdout=subprocess.PIPE, encoding="utf-8")  # use PIPE to prevent subprocess from printing
-current_branch = output.stdout.strip()  # select only stdout
+results = subprocess.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                         stdout=subprocess.PIPE, encoding="utf-8")
+current_branch = results.stdout.strip()
 
 
-def branch_builder(branch_1, branch_2):  # place two branch names together with '..' for git
-    branch = branch_1 + '..' + branch_2
-    return branch
+def check_commits_before(current_branch):
+    """
+    :param current_branch: The branch that is currently checked out in git
+    :return: Boolean indicating that there have been no commits after current working branch (True) or that there have been commits after the current branch (False)
+    """
+    # connect branch names with '..' revision selector
+    branch_range = f'{current_branch}..{base_branch}'
+    results = subprocess.run(['git', 'rev-list', '--count', branch_range],
+                             stdout=subprocess.PIPE, encoding="utf-8")
 
+    if results.returncode != 0:
+        logging.info("git command was unsuccessful: return code", results.returncode)
+    num_commits = int(results.stdout.strip())
 
-def check_commits_before(current_branch):  # make sure that the checked out branch is based on the current branch
-    branch_range = branch_builder(current_branch, master_branch)  # connect the two branch names with '..'
-    output = subprocess.run(['git', 'rev-list', '--count', branch_range],
-                            stdout=subprocess.PIPE, encoding="utf-8")  # using PIPE to prevent subprocess from printing
-    if output.returncode != 0:
-        print("git command was unsuccessful: return code", output.returncode)
-    out_code = int(output.stdout.strip())  # select only stdout
-    if out_code != 0:
-        print("Not ready to be merged. There are", out_code,
-              "commits after the current branch. You need to rebase")
+    if num_commits != 0:
+        logging.info("Not ready to be merged. There are", num_commits,
+                     "commits after the current branch. You need to rebase")
         return False
     else:
         return True
 
 
-def check_commits_after(current_branch):  # make sure that the checked out branch is only one commit ahead of develop
-    branch_range = branch_builder(master_branch, current_branch)  # connect the two branch names with '..'
-    output = subprocess.run(['git', 'rev-list', '--count', branch_range],
-                            stdout=subprocess.PIPE, encoding="utf-8")  # using PIPE to prevent subprocess from printing
-    if output.returncode != 0:
-        print("git command was unsuccessful: return code", output.returncode)
-    out_code = int(output.stdout.strip())
+def check_commits_after(current_branch):
+    """
+    :param current_branch: The branch that is currently checked out in git
+    :return: Boolean indicating whether current branch is one (True) or more than one (False) commit ahead of the base
+    """
+    # connect the two branch names with '..'
+    branch_range = f'{base_branch}..{current_branch}'
+    results = subprocess.run(['git', 'rev-list', '--count', branch_range],
+                             stdout=subprocess.PIPE, encoding="utf-8")
+
+    if results.returncode != 0:
+        logging.info("git command was unsuccessful: return code", results.returncode)
+    out_code = int(results.stdout.strip())
     if out_code > 2:
-        print("Not ready to be merged. This branch is more than one commit ahead of develop")
+        logging.info("Not ready to be merged. This branch is more than one commit ahead of its base")
         return False
     else:
         return True
 
 
 def check_diff(current_branch):
-    # run git diff
-    output = subprocess.run(['git', 'diff', '--stat', master_branch, current_branch],
+    """
+    :param current_branch: The branch that is currently checked out in git
+    :return: Boolean indicating if there is a difference (False) between current branch and the base, or not (True)
+    """
+    origin_of_current_branch = f'origin/{current_branch}'
+    output = subprocess.run(['git', 'diff', '--stat', origin_of_current_branch, current_branch],
                             stdout=subprocess.PIPE, encoding="utf-8")
+
     if output.returncode != 0:
-        print("git command was unsuccessful: return code", output.returncode)
-    out_string = output.stdout.strip()  # select only stdout
+        logging.info("git command was unsuccessful: return code", output.returncode)
+    out_string = output.stdout.strip()
+
     if not out_string:
         return True
     else:
@@ -59,5 +79,7 @@ def check_diff(current_branch):
 
 if check_commits_before(current_branch) and check_commits_after(current_branch) and check_diff(current_branch):
     print("ready to merge")
+    sys.exit(0)
 else:
     print("not ready to merge")
+    sys.exit(1)
